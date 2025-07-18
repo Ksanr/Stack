@@ -42,9 +42,8 @@ class Mail():
             mail_server.starttls()
             # re-identify ourselves as an encrypted connection
             mail_server.ehlo()
-            print('Здесь ещё всё хорошо')
-            mail_server.login(self.login, self.password)
-            print('А здесь нет')
+            # Здесь ещё всё хорошо
+            mail_server.login(self.login, self.password) # А здесь нет
             text = msg.as_string()
             mail_server.sendmail(self.login, recipients, text)
 
@@ -54,9 +53,10 @@ class Mail():
         finally:
             mail_server.quit()
 
-    def receive_email(self):
+    def receive_email(self, header: str = None):
         """
         Получение писем
+        :param header: Критерии по заголовку
         :return:
         """
         try:
@@ -65,14 +65,18 @@ class Mail():
             mail_server.list()
             mail_server.select("inbox")
             criterion = '(HEADER Subject "%s")' % header if header else 'ALL'
-            result, data = mail_server.uid('search', None, criterion)
+            result, data = mail_server.search(None, criterion)
             assert data[0], 'There are no letters with current header'
             latest_email_uid = data[0].split()[-1]
-            result, data = mail_server.uid('fetch', latest_email_uid, '(RFC822)')
-            raw_email = data[0][1]
+            result, data = mail_server.fetch(latest_email_uid, '(RFC822)')
+            raw_email = data[0][1].decode('utf-8')
             email_message = email.message_from_string(raw_email)
+            mail_server.close()
             mail_server.logout()
             return email_message
+        except imaplib.IMAP4.error as err:
+            print(f"Ошибка IMAP: {err}")
+            raise err
         except Exception as err:
             print('Что - то пошло не так...')
             raise err
@@ -95,5 +99,5 @@ if __name__ == '__main__':
 
     mail1.send_email(recipients, subject, message)
 
-    mail1.receive_email()
+    print(mail1.receive_email(header))
 
